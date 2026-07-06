@@ -6,7 +6,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-
 HalalStatus = Literal[
     "CERTIFIED_HALAL",
     "NO_PROHIBITED_INGREDIENT_FOUND",
