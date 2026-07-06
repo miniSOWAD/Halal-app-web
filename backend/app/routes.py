@@ -16,7 +16,11 @@ router = APIRouter()
 async def register(data: schemas.UserCreate, database: AsyncSession = Depends(get_database)):
     if await crud.get_user_by_email(database, data.email):
         raise HTTPException(status_code=409, detail="An account with this email already exists.")
-    user = await crud.create_user(database, data, auth.hash_password(data.password))
+    try:
+        user = await crud.create_user(database, data, auth.hash_password(data.password))
+    except IntegrityError as exc:
+        await database.rollback()
+        raise HTTPException(status_code=409, detail="An account with this email already exists.") from exc
     return schemas.AuthResponse(access_token=auth.create_access_token(user), user=user)
 
 
@@ -47,7 +51,7 @@ async def products_search(
     q: str = Query(default="", max_length=120),
     database: AsyncSession = Depends(get_database),
 ):
-    return await crud.search_products(database, q)
+    return await services.search_products(database, q)
 
 
 @router.get("/products/{product_id}", response_model=schemas.ProductResponse)
