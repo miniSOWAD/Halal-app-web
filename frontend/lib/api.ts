@@ -6,6 +6,8 @@ import type {
   Certification,
   HistoryItem,
   Ingredient,
+  OTPResponse,
+  PasswordResetToken,
   Product,
   Report,
   User,
@@ -39,16 +41,10 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
   let response: Response;
   try {
-    response = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers,
-      mode: "cors",
-    });
+    response = await fetch(`${API_URL}${path}`, { ...options, headers, mode: "cors" });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Network request failed";
-    throw new Error(
-      `Could not reach the HalalFit API at ${API_URL}. Check the API URL, FastAPI Cloud status and CORS settings. ${message}`,
-    );
+    throw new Error(`Could not reach the HalalFit API at ${API_URL}. ${message}`);
   }
 
   if (!response.ok) throw new Error(await parseError(response));
@@ -57,13 +53,42 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 }
 
 export const api = {
-  register: (payload: { name: string; email: string; password: string; country?: string }) =>
-    apiFetch<AuthResponse>("/auth/register", { method: "POST", body: JSON.stringify(payload) }),
+  registerSendOtp: (payload: { name: string; email: string; password: string; country?: string; phone?: string }) =>
+    apiFetch<OTPResponse>("/auth/register/send-otp", { method: "POST", body: JSON.stringify(payload) }),
+  registerResendOtp: (email: string) =>
+    apiFetch<OTPResponse>("/auth/register/resend-otp", { method: "POST", body: JSON.stringify({ email }) }),
+  registerVerifyOtp: (email: string, otp: string) =>
+    apiFetch<AuthResponse>("/auth/register/verify-otp", { method: "POST", body: JSON.stringify({ email, otp }) }),
   login: (payload: { email: string; password: string }) =>
     apiFetch<AuthResponse>("/auth/login", { method: "POST", body: JSON.stringify(payload) }),
+  forgotPasswordSendOtp: (email: string) =>
+    apiFetch<OTPResponse>("/auth/forgot-password/send-otp", { method: "POST", body: JSON.stringify({ email }) }),
+  forgotPasswordResendOtp: (email: string) =>
+    apiFetch<OTPResponse>("/auth/forgot-password/resend-otp", { method: "POST", body: JSON.stringify({ email }) }),
+  forgotPasswordVerifyOtp: (email: string, otp: string) =>
+    apiFetch<PasswordResetToken>("/auth/forgot-password/verify-otp", { method: "POST", body: JSON.stringify({ email, otp }) }),
+  resetPassword: (resetToken: string, newPassword: string) =>
+    apiFetch<{ message: string }>("/auth/forgot-password/reset", {
+      method: "POST",
+      body: JSON.stringify({ reset_token: resetToken, new_password: newPassword }),
+    }),
   me: () => apiFetch<User>("/auth/me"),
-  updateMe: (payload: { name?: string; country?: string }) =>
+  updateMe: (payload: { name?: string; country?: string; phone?: string }) =>
     apiFetch<User>("/auth/me", { method: "PATCH", body: JSON.stringify(payload) }),
+  changePassword: (oldPassword: string, newPassword: string) =>
+    apiFetch<{ message: string }>("/auth/password/change", {
+      method: "POST",
+      body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+    }),
+  emailChangeSendOtp: (newEmail: string) =>
+    apiFetch<OTPResponse>("/auth/email-change/send-otp", { method: "POST", body: JSON.stringify({ new_email: newEmail }) }),
+  emailChangeResendOtp: (newEmail: string) =>
+    apiFetch<OTPResponse>("/auth/email-change/resend-otp", { method: "POST", body: JSON.stringify({ new_email: newEmail }) }),
+  emailChangeVerifyOtp: (newEmail: string, otp: string) =>
+    apiFetch<AuthResponse>("/auth/email-change/verify-otp", {
+      method: "POST",
+      body: JSON.stringify({ new_email: newEmail, otp }),
+    }),
 
   searchProducts: (query: string) => apiFetch<Product[]>(`/products/search?q=${encodeURIComponent(query)}`),
   getProduct: (id: string) => apiFetch<Product>(`/products/${id}`),
@@ -92,7 +117,7 @@ export const api = {
   favorites: () => apiFetch<Product[]>("/favorites"),
   addFavorite: (productId: string) => apiFetch(`/favorites/${productId}`, { method: "POST" }),
   removeFavorite: (productId: string) => apiFetch<void>(`/favorites/${productId}`, { method: "DELETE" }),
-  createReport: (payload: { product_id?: string; message: string }) =>
+  createReport: (payload: { product_id?: string; subject: string; category: string; message: string }) =>
     apiFetch<Report>("/reports", { method: "POST", body: JSON.stringify(payload) }),
 
   ingredients: (query = "") => apiFetch<Ingredient[]>(`/ingredients?q=${encodeURIComponent(query)}`),
