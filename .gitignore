@@ -1,0 +1,27 @@
+# Environment and secrets
+.env
+.env.local
+*.env
+!.env.example
+!.env.local.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+halalfit.db
+
+# Next.js / Node
+node_modules/
+.next/
+out/
+
+# Android / IDE
+frontend/android/.gradle/
+frontend/android/app/build/
+frontend/android/build/
+.idea/
+.vscode/
+.DS_Store
