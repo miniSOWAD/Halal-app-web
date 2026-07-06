@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_database
 from app.models import User
-
 
 password_hash = PasswordHash.recommended()
 bearer = HTTPBearer(auto_error=False)
@@ -27,7 +26,7 @@ def verify_password(password: str, hashed_password: str) -> bool:
 
 
 def create_access_token(user: User) -> str:
-    expires = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
+    expires = datetime.now(UTC) + timedelta(minutes=settings.access_token_expire_minutes)
     payload = {
         "sub": str(user.id),
         "email": user.email,
