@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import io
 import re
 from typing import Any
@@ -70,22 +71,89 @@ def map_open_food_facts(product: dict[str, Any], barcode: str) -> schemas.Produc
     )
 
 
-def extract_text_from_image(content: bytes) -> str:
+async def extract_text_from_image(
+    content: bytes,
+    *,
+    filename: str | None,
+    content_type: str,
+) -> str:
     try:
         image = Image.open(io.BytesIO(content))
-    except UnidentifiedImageError as exc:
+        image = ImageOps.exif_transpose(image).convert("RGB")
+    except (UnidentifiedImageError, OSError) as exc:
         raise HTTPException(status_code=400, detail="The uploaded file is not a readable image.") from exc
 
-    image = ImageOps.exif_transpose(image).convert("L")
     image.thumbnail((2400, 2400))
-    image = ImageEnhance.Contrast(image).enhance(1.8)
-    try:
-        text = pytesseract.image_to_string(image, config="--psm 6")
-    except pytesseract.TesseractNotFoundError as exc:
+    grayscale = ImageEnhance.Contrast(image.convert("L")).enhance(1.8)
+
+    if settings.ocr_provider == "ocr_space":
+        if not settings.ocr_api_key:
+            raise HTTPException(
+                status_code=503,
+                detail="Cloud OCR is not configured. Add OCR_API_KEY in FastAPI Cloud.",
+            )
+
+        prepared = io.BytesIO()
+        image.save(prepared, format="JPEG", quality=90, optimize=True)
+        upload_name = filename or "food-label.jpg"
+        files = {"file": (upload_name, prepared.getvalue(), "image/jpeg")}
+        form = {
+            "language": settings.ocr_language,
+            "isOverlayRequired": "false",
+            "OCREngine": "2",
+            "scale": "true",
+        }
+        headers = {"apikey": settings.ocr_api_key}
+        try:
+            async with httpx.AsyncClient(timeout=45, follow_redirects=True) as client:
+                response = await client.post(
+                    settings.ocr_api_url,
+                    data=form,
+                    files=files,
+                    headers=headers,
+                )
+                response.raise_for_status()
+                payload = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise HTTPException(status_code=503, detail="The cloud OCR service is unavailable.") from exc
+
+        if payload.get("IsErroredOnProcessing"):
+            error = payload.get("ErrorMessage") or payload.get("ErrorDetails") or "OCR failed."
+            if isinstance(error, list):
+                error = " ".join(str(item) for item in error)
+            raise HTTPException(status_code=422, detail=str(error))
+
+        parsed_results = payload.get("ParsedResults") or []
+        text = "\n".join(
+            str(item.get("ParsedText", ""))
+            for item in parsed_results
+            if isinstance(item, dict)
+        )
+    elif settings.ocr_provider == "tesseract":
+        try:
+            text = await asyncio.to_thread(
+                pytesseract.image_to_string,
+                grayscale,
+                config="--psm 6",
+                lang=settings.ocr_language,
+            )
+        except pytesseract.TesseractNotFoundError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Tesseract is not installed on this server. For FastAPI Cloud, "
+                    "set OCR_PROVIDER=ocr_space and add OCR_API_KEY."
+                ),
+            ) from exc
+    else:
         raise HTTPException(
             status_code=503,
-            detail="OCR is not installed on the backend server. Install Tesseract or use the provided Dockerfile.",
-        ) from exc
+            detail=(
+                "Image OCR is disabled. Set OCR_PROVIDER=ocr_space and OCR_API_KEY "
+                "in FastAPI Cloud, or use manual ingredient entry."
+            ),
+        )
+
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     if len(text) < 3:
@@ -343,12 +411,16 @@ async def analyze_image(
     file: UploadFile,
     user: models.User | None,
 ) -> schemas.AnalysisResponse:
-    if file.content_type not in {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}:
+    if file.content_type not in {"image/jpeg", "image/png", "image/webp"}:
         raise HTTPException(status_code=415, detail="Upload a JPG, PNG or WebP image.")
     content = await file.read(settings.max_upload_mb * 1024 * 1024 + 1)
     if len(content) > settings.max_upload_mb * 1024 * 1024:
         raise HTTPException(status_code=413, detail=f"Image must be smaller than {settings.max_upload_mb} MB.")
-    text = extract_text_from_image(content)
+    text = await extract_text_from_image(
+        content,
+        filename=file.filename,
+        content_type=file.content_type or "application/octet-stream",
+    )
     ingredients = find_ingredient_text(text)
     nutrition = parse_nutrition_from_text(text)
     return await build_analysis(
