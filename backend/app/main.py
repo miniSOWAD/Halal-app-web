@@ -40,6 +40,10 @@ app.include_router(router, prefix=settings.api_prefix)
 async def root():
     return {"name": settings.app_name, "docs": "/docs"}
 
+@app.get("/")
+async def root() -> dict[str, str]:
+    return {"message": "HalalFit API is running"}
+
 
 @app.get("/health")
 async def health():
