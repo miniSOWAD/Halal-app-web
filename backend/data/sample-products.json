@@ -1,0 +1,21 @@
+[
+  {
+    "name": "Example Whole Grain Biscuit",
+    "brand": "Example Foods",
+    "category": "Biscuits",
+    "barcode": "1234567890123",
+    "country": "US",
+    "image_url": "https://example.com/biscuit.jpg",
+    "ingredient_text": "Whole wheat flour, oats, vegetable oil, sugar, soy lecithin, salt",
+    "nutrition_data": {
+      "energy_kcal_100g": 410,
+      "sugars_100g": 12,
+      "saturated_fat_100g": 2.5,
+      "trans_fat_100g": 0,
+      "sodium_100g": 0.3,
+      "fiber_100g": 7,
+      "proteins_100g": 9
+    },
+    "data_source": "ADMIN"
+  }
+]
