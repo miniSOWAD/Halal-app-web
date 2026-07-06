@@ -40,7 +40,7 @@ export default function ScanResult({ result }: { result: AnalysisResult }) {
   async function submitReport() {
     if (report.trim().length < 5) return;
     try {
-      await api.createReport({ product_id: result.product?.id ?? undefined, message: report.trim() });
+      await api.createReport({ product_id: result.product?.id ?? undefined, subject: "Incorrect scan result", category: "PRODUCT_DATA", message: report.trim() });
       setReport("");
       setReportOpen(false);
       setNotice("Report submitted for review.");
