@@ -65,3 +65,7 @@ The seed script creates a local demo administrator: `admin@halalfit.app` / `Chan
 ## Accuracy note
 
 The application performs ingredient screening. A result such as “No prohibited ingredient found” is not the same as official halal certification. Unknown and source-dependent ingredients remain unverified.
+
+## Database creation
+
+The backend now includes `backend/database.sql` for the Neon SQL Editor and an Alembic migration for command-line setup. Use one method on a fresh database, then run `backend/scripts/seed_database.py`.
