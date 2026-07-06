@@ -10,9 +10,7 @@ from app.database import Base
 
 
 class TimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -26,11 +24,28 @@ class User(Base, TimestampMixin):
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     country: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     scans: Mapped[list[Scan]] = relationship(back_populates="user", cascade="all, delete-orphan")
     favorites: Mapped[list[Favorite]] = relationship(back_populates="user", cascade="all, delete-orphan")
     reports: Mapped[list[Report]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class EmailOTP(Base):
+    __tablename__ = "email_otps"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(320), index=True)
+    purpose: Mapped[str] = mapped_column(String(40), index=True)
+    code_hash: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    resend_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    consumed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class Product(Base, TimestampMixin):
@@ -135,12 +150,8 @@ class Scan(Base):
     __tablename__ = "scans"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True
-    )
-    product_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("products.id", ondelete="SET NULL"), index=True, nullable=True
-    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True)
+    product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id", ondelete="SET NULL"), index=True, nullable=True)
     input_type: Mapped[str] = mapped_column(String(32))
     input_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -172,12 +183,10 @@ class Report(Base):
     __tablename__ = "reports"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True
-    )
-    product_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("products.id", ondelete="SET NULL"), index=True, nullable=True
-    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True)
+    product_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("products.id", ondelete="SET NULL"), index=True, nullable=True)
+    subject: Mapped[str] = mapped_column(String(180), default="User report", nullable=False)
+    category: Mapped[str] = mapped_column(String(40), default="GENERAL", nullable=False)
     message: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(24), default="OPEN")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
