@@ -10,6 +10,7 @@ import httpx
 import pytesseract
 from fastapi import HTTPException, UploadFile
 from PIL import Image, ImageEnhance, ImageOps, UnidentifiedImageError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import analysis, crud, models, schemas
@@ -69,6 +70,105 @@ def map_open_food_facts(product: dict[str, Any], barcode: str) -> schemas.Produc
         nutrition_data=nutrition,
         data_source="OPEN_FOOD_FACTS",
     )
+
+
+async def search_open_food_facts(query: str, limit: int = 12) -> list[dict[str, Any]]:
+    """Search Open Food Facts when the local product table has no match."""
+    cleaned = query.strip()
+    if len(cleaned) < 2:
+        return []
+
+    fields = ",".join(
+        [
+            "code",
+            "product_name",
+            "brands",
+            "categories",
+            "countries_tags",
+            "image_front_url",
+            "ingredients_text",
+            "nutriments",
+        ]
+    )
+    url = f"{settings.open_food_facts_url.rstrip('/')}/cgi/search.pl"
+    params = {
+        "search_terms": cleaned,
+        "search_simple": "1",
+        "action": "process",
+        "json": "1",
+        "page_size": str(limit),
+        "fields": fields,
+    }
+    headers = {"User-Agent": settings.open_food_facts_user_agent}
+    try:
+        async with httpx.AsyncClient(timeout=15, headers=headers, follow_redirects=True) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            payload = response.json()
+    except (httpx.HTTPError, ValueError):
+        return []
+
+    products = payload.get("products") or []
+    return [item for item in products if isinstance(item, dict)]
+
+
+async def refresh_product_assessment(database: AsyncSession, product: models.Product) -> models.Product:
+    """Calculate and store product ratings without creating a scan-history row."""
+    ingredient_records = await crud.all_ingredients(database)
+    halal_rules = await crud.active_halal_rules(database)
+    health_rules = await crud.active_health_rules(database)
+    ingredient_names = analysis.split_ingredients(product.ingredient_text or "")
+    matches = [
+        analysis.match_ingredient(name, ingredient_records, halal_rules)
+        for name in ingredient_names
+    ]
+    certificate = analysis.active_certificate(product.certifications or [])
+    halal = analysis.calculate_halal(matches, certificate)
+    health = analysis.calculate_health(matches, product.nutrition_data, health_rules)
+    product.halal_status = halal["status"]
+    product.halal_confidence = halal["confidence"]
+    product.health_status = health["status"]
+    product.health_score = health["score"]
+    product.explanation = analysis.recommendation(halal, health)
+    await database.commit()
+    await database.refresh(product)
+    return product
+
+
+async def search_products(
+    database: AsyncSession,
+    query: str,
+    limit: int = 30,
+) -> list[models.Product]:
+    """Search Neon first, then import a few international matches if needed."""
+    local = list(await crud.search_products(database, query, limit=limit))
+    if local or not query.strip():
+        return local
+
+    external_rows = await search_open_food_facts(query, limit=min(limit, 12))
+    imported: list[models.Product] = []
+
+    for row in external_rows:
+        barcode = str(row.get("code") or "").strip()
+        if not re.fullmatch(r"\d{8,14}", barcode):
+            continue
+
+        product = await crud.get_product_by_barcode(database, barcode)
+        if product is None:
+            try:
+                created = await crud.create_product(database, map_open_food_facts(row, barcode))
+                product = await crud.get_product(database, created.id)
+            except IntegrityError:
+                await database.rollback()
+                product = await crud.get_product_by_barcode(database, barcode)
+
+        if product is None:
+            continue
+        if product.ingredient_text or product.nutrition_data:
+            product = await refresh_product_assessment(database, product)
+        imported.append(product)
+
+    return imported[:limit]
 
 
 async def extract_text_from_image(
