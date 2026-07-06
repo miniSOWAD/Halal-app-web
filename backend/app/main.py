@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import models  # noqa: F401  # Register SQLAlchemy models before create_all.
-from app.bootstrap import seed_database
+from app.bootstrap import seed_database, upgrade_existing_schema
 from app.config import settings
 from app.database import DATABASE_URL, Base, engine
 from app.routes import router
@@ -38,6 +38,7 @@ async def lifespan(_: FastAPI):
                     text("SELECT pg_advisory_xact_lock(:lock_key)"),
                     {"lock_key": 485019770},
                 )
+            await upgrade_existing_schema(connection)
             await connection.run_sync(Base.metadata.create_all)
 
     if settings.auto_seed_data:
@@ -50,7 +51,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title=f"{settings.app_name} API",
     description="Ingredient, barcode, QR, food-label, halal, and nutrition analysis API.",
-    version="1.2.0",
+    version="1.3.0",
     lifespan=lifespan,
 )
 
@@ -116,4 +117,5 @@ async def configuration_health() -> dict[str, str | bool]:
         "auto_create_tables": settings.auto_create_tables,
         "auto_seed_data": settings.auto_seed_data,
         "seed_demo_products": settings.seed_demo_products,
+        "email_configured": bool(settings.smtp_username and settings.smtp_password),
     }
