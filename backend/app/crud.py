@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -25,6 +26,8 @@ async def create_user(database: AsyncSession, data: schemas.UserCreate, password
         email=data.email.lower(),
         password_hash=password_hash,
         country=data.country.upper() if data.country else None,
+        phone=data.phone.strip() if data.phone else None,
+        email_verified=True,
     )
     database.add(user)
     await database.commit()
@@ -269,7 +272,7 @@ async def remove_favorite(database: AsyncSession, user_id: uuid.UUID, product_id
 
 
 async def create_report(
-    database: AsyncSession, user_id: uuid.UUID | None, data: schemas.ReportCreate
+    database: AsyncSession, user_id: uuid.UUID, data: schemas.ReportCreate
 ) -> models.Report:
     report = models.Report(user_id=user_id, **data.model_dump())
     database.add(report)
@@ -329,3 +332,77 @@ async def dashboard_counts(database: AsyncSession) -> dict[str, int]:
         "scans": await count(models.Scan),
         "open_reports": await count(models.Report, models.Report.status != "RESOLVED"),
     }
+
+
+async def create_otp(
+    database: AsyncSession,
+    *,
+    email: str,
+    purpose: str,
+    code_hash: str,
+    payload: dict,
+    expires_seconds: int,
+    resend_seconds: int,
+) -> models.EmailOTP:
+    normalized = email.lower()
+    await database.execute(
+        update(models.EmailOTP)
+        .where(
+            func.lower(models.EmailOTP.email) == normalized,
+            models.EmailOTP.purpose == purpose,
+            models.EmailOTP.consumed.is_(False),
+        )
+        .values(consumed=True)
+    )
+    now = datetime.now(UTC)
+    record = models.EmailOTP(
+        email=normalized,
+        purpose=purpose,
+        code_hash=code_hash,
+        payload=payload,
+        expires_at=now + timedelta(seconds=expires_seconds),
+        resend_at=now + timedelta(seconds=resend_seconds),
+    )
+    database.add(record)
+    await database.commit()
+    await database.refresh(record)
+    return record
+
+
+async def latest_otp(database: AsyncSession, email: str, purpose: str) -> models.EmailOTP | None:
+    result = await database.execute(
+        select(models.EmailOTP)
+        .where(
+            func.lower(models.EmailOTP.email) == email.lower(),
+            models.EmailOTP.purpose == purpose,
+            models.EmailOTP.consumed.is_(False),
+        )
+        .order_by(models.EmailOTP.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def mark_otp_consumed(database: AsyncSession, record: models.EmailOTP) -> None:
+    record.consumed = True
+    await database.commit()
+
+
+async def increment_otp_attempts(database: AsyncSession, record: models.EmailOTP) -> None:
+    record.attempts += 1
+    await database.commit()
+
+
+async def update_user_password(database: AsyncSession, user: models.User, password_hash: str) -> models.User:
+    user.password_hash = password_hash
+    await database.commit()
+    await database.refresh(user)
+    return user
+
+
+async def update_user_email(database: AsyncSession, user: models.User, email: str) -> models.User:
+    user.email = email.lower()
+    user.email_verified = True
+    await database.commit()
+    await database.refresh(user)
+    return user
