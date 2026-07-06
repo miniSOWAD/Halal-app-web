@@ -1,24 +1,26 @@
-# HalalFit Next.js frontend
+# HalalFit frontend
+
+Next.js TypeScript frontend exported for web and Capacitor Android.
+
+## API configuration
+
+```env
+NEXT_PUBLIC_API_URL=https://backend.fastapicloud.dev/api
+```
 
 ## Development
 
-```bash
-cp .env.local.example .env.local
-npm install
-npm run dev
+```powershell
+pnpm install
+pnpm dev
 ```
 
-Set `NEXT_PUBLIC_API_URL` to the FastAPI URL, including `/api`.
+## Build and Android sync
 
-## Android / Google Play
-
-The frontend uses static export and Capacitor.
-
-```bash
-npm run build
-# Android project is already included
-npm run android:sync
-npm run android:open
+```powershell
+pnpm build
+npx cap sync android
+npx cap open android
 ```
 
-In Android Studio, create a signed Android App Bundle (`.aab`) for Play Console. Add the production FastAPI URL to `.env.local` before building. Camera permission is required for barcode/QR scanning and label images.
+The app includes mobile bottom navigation, a mobile menu, OTP registration/password reset/email change, profile editing, About and Contact pages.
