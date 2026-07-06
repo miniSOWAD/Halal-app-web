@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://halalfit.app/schemas/product-import.schema.json",
+  "title": "HalalFit Product Import",
+  "type": "object",
+  "required": ["name", "ingredient_text"],
+  "properties": {
+    "name": { "type": "string", "minLength": 2, "maxLength": 220 },
+    "brand": { "type": ["string", "null"], "maxLength": 160 },
+    "category": { "type": ["string", "null"], "maxLength": 120 },
+    "barcode": { "type": ["string", "null"], "pattern": "^[0-9]{8,14}$" },
+    "country": { "type": ["string", "null"], "pattern": "^[A-Z]{2}$" },
+    "image_url": { "type": ["string", "null"], "format": "uri" },
+    "ingredient_text": { "type": "string", "minLength": 2 },
+    "nutrition_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "energy_kcal_100g": { "type": ["number", "null"], "minimum": 0 },
+        "sugars_100g": { "type": ["number", "null"], "minimum": 0 },
+        "saturated_fat_100g": { "type": ["number", "null"], "minimum": 0 },
+        "trans_fat_100g": { "type": ["number", "null"], "minimum": 0 },
+        "sodium_100g": { "type": ["number", "null"], "minimum": 0 },
+        "salt_100g": { "type": ["number", "null"], "minimum": 0 },
+        "fiber_100g": { "type": ["number", "null"], "minimum": 0 },
+        "proteins_100g": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "data_source": { "type": "string", "default": "ADMIN" }
+  }
+}
