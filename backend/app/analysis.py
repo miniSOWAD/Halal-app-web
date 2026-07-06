@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, Iterable
+from typing import Any
 
 from app.models import Certification, HalalRule, HealthRule, Ingredient
-
 
 HALAL_LABELS = {
     "CERTIFIED_HALAL": "Certified Halal",
