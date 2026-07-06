@@ -1,0 +1,2 @@
+name,brand,category,barcode,country,image_url,ingredient_text,energy_kcal_100g,sugars_100g,saturated_fat_100g,trans_fat_100g,sodium_100g,salt_100g,fiber_100g,proteins_100g,data_source
+Example Whole Grain Biscuit,Example Foods,Biscuits,1234567890123,US,https://example.com/biscuit.jpg,"Whole wheat flour, oats, vegetable oil, sugar, soy lecithin, salt",410,12,2.5,0,0.3,,7,9,ADMIN
