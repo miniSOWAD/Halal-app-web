@@ -2,7 +2,7 @@
 name = "halalfit-backend"
 version = "1.0.0"
 description = "FastAPI backend for HalalFit Global"
-requires-python = ">=3.11"
+requires-python = "==3.12.*"
 dependencies = [
   "aiosqlite>=0.21.0",
   "alembic>=1.15.0",
@@ -19,7 +19,18 @@ dependencies = [
   "pytesseract>=0.3.13",
   "python-multipart>=0.0.20",
   "sqlalchemy[asyncio]>=2.0.41",
-  "uvicorn[standard]>=0.35.0"
+  "uvicorn[standard]>=0.35.0",
+  "fastapi[standard]",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
+    "psycopg[binary]",
+    "alembic",
+    "pydantic-settings",
+    "python-jose[cryptography]",
+    "passlib[bcrypt]",
+    "python-multipart",
+    "httpx",
+    "pillow"
 ]
 
 [project.optional-dependencies]
@@ -45,3 +56,6 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["app*"]
 exclude = ["migrations*", "tests*", "scripts*"]
+
+[tool.fastapi]
+entrypoint = "app.main:app"
