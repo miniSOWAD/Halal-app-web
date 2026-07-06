@@ -11,13 +11,20 @@ import type {
   User,
 } from "@/lib/types";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api").replace(/\/$/, "");
+function normalizeApiUrl(rawUrl?: string): string {
+  const value = (rawUrl || "http://localhost:8000/api").trim().replace(/\/+$/, "");
+  return value.endsWith("/api") ? value : `${value}/api`;
+}
+
+export const API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL);
 
 async function parseError(response: Response): Promise<string> {
   try {
     const data = await response.json();
     if (typeof data.detail === "string") return data.detail;
-    if (Array.isArray(data.detail)) return data.detail.map((item: { msg?: string }) => item.msg).join(", ");
+    if (Array.isArray(data.detail)) {
+      return data.detail.map((item: { msg?: string }) => item.msg).filter(Boolean).join(", ");
+    }
   } catch {
     // Ignore invalid error bodies.
   }
@@ -30,7 +37,20 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   if (!(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const response = await fetch(`${API_URL}${path}`, { ...options, headers });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers,
+      mode: "cors",
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Network request failed";
+    throw new Error(
+      `Could not reach the HalalFit API at ${API_URL}. Check the API URL, FastAPI Cloud status and CORS settings. ${message}`,
+    );
+  }
+
   if (!response.ok) throw new Error(await parseError(response));
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
