@@ -9,7 +9,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "HalalFit Global"
-    app_env: str = "development"
+    # Production by default prevents a cloud deployment from silently using SQLite.
+    # Local development should set APP_ENV=development in backend/.env.
+    app_env: str = "production"
     debug: bool = False
     api_prefix: str = "/api"
 
@@ -22,6 +24,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7
 
+    # For a small public API that uses Bearer tokens (not cookies), allowing all
+    # origins is the easiest reliable setup for web + Capacitor. Set this to
+    # false later and list exact deployed origins in FRONTEND_URLS.
+    cors_allow_all: bool = True
     frontend_urls: list[str] = Field(
         default_factory=lambda: [
             "http://localhost:3000",
@@ -36,7 +42,7 @@ class Settings(BaseSettings):
     max_upload_mb: int = 8
     auto_create_tables: bool = True
     auto_seed_data: bool = True
-    seed_demo_products: bool = False
+    seed_demo_products: bool = True
     seed_admin_email: str | None = None
     seed_admin_password: str | None = None
 
