@@ -1,22 +1,36 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function SearchBox({ initialValue = "", large = false }: { initialValue?: string; large?: boolean }) {
+export default function SearchBox({
+  initialValue = "",
+  large = false,
+  onSearch,
+}: {
+  initialValue?: string;
+  large?: boolean;
+  onSearch?: (query: string) => void | Promise<void>;
+}) {
   const [value, setValue] = useState(initialValue);
   const router = useRouter();
 
-  function submit(event: FormEvent) {
+  useEffect(() => setValue(initialValue), [initialValue]);
+
+  async function submit(event: FormEvent) {
     event.preventDefault();
     const query = value.trim();
+    if (onSearch) {
+      await onSearch(query);
+      return;
+    }
     router.push(query ? `/search/?q=${encodeURIComponent(query)}` : "/search/");
   }
 
   return (
     <form className={large ? "search-box large" : "search-box"} onSubmit={submit}>
-      <Search size={22} />
+      <Search size={22} aria-hidden="true" />
       <input
         value={value}
         onChange={(event) => setValue(event.target.value)}
