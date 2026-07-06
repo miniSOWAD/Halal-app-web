@@ -8,8 +8,14 @@ export async function login(email: string, password: string): Promise<User> {
   return result.user;
 }
 
-export async function register(name: string, email: string, password: string, country?: string): Promise<User> {
-  const result = await api.register({ name, email, password, country });
+export async function verifyRegistration(email: string, otp: string): Promise<User> {
+  const result = await api.registerVerifyOtp(email, otp);
+  await setAccessToken(result.access_token);
+  return result.user;
+}
+
+export async function verifyEmailChange(email: string, otp: string): Promise<User> {
+  const result = await api.emailChangeVerifyOtp(email, otp);
   await setAccessToken(result.access_token);
   return result.user;
 }
