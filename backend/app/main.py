@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import settings
 from app.database import Base, engine
@@ -18,7 +20,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="HalalFit Global API",
+    title=f"{settings.app_name} API",
     description="Ingredient, barcode, QR and food-label analysis API.",
     version="1.0.0",
     lifespan=lifespan,
@@ -41,4 +43,16 @@ async def root():
 
 @app.get("/health")
 async def health():
+    """Simple liveness check that does not require the database."""
     return {"status": "ok"}
+
+
+@app.get("/health/database")
+async def database_health():
+    """Check that FastAPI can connect to Neon PostgreSQL."""
+    try:
+        async with engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=503, detail="Database connection failed.") from exc
+    return {"status": "ok", "database": "connected"}
