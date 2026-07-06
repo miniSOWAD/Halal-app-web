@@ -360,3 +360,21 @@ async def seed_database() -> dict[str, int]:
                         )
 
     return created
+
+
+async def upgrade_existing_schema(connection) -> None:
+    """Apply small idempotent PostgreSQL upgrades for existing Neon databases.
+
+    create_all creates new tables but does not add columns to tables that already
+    exist. These statements keep cloud redeployment simple for the MVP.
+    """
+    if connection.dialect.name != "postgresql":
+        return
+    statements = [
+        "ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS phone VARCHAR(32)",
+        "ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT TRUE",
+        "ALTER TABLE IF EXISTS reports ADD COLUMN IF NOT EXISTS subject VARCHAR(180) NOT NULL DEFAULT 'User report'",
+        "ALTER TABLE IF EXISTS reports ADD COLUMN IF NOT EXISTS category VARCHAR(40) NOT NULL DEFAULT 'GENERAL'",
+    ]
+    for statement in statements:
+        await connection.execute(text(statement))
