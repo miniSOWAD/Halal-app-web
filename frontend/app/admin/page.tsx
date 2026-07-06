@@ -1,0 +1,53 @@
+"use client";
+
+import { FormEvent, useEffect, useState } from "react";
+
+import Loading from "@/components/Loading";
+import { api } from "@/lib/api";
+import type { AdminDashboard, Ingredient, Product, Report } from "@/lib/types";
+
+export default function AdminPage() {
+  const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [tab, setTab] = useState<"ingredients" | "products" | "certificates" | "reports">("ingredients");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [ingredientForm, setIngredientForm] = useState({ name: "", aliases: "", e_number: "", halal_status: "UNKNOWN", health_status: "NEUTRAL", source_dependent: false, risk_level: 0, explanation: "", source: "" });
+  const [productForm, setProductForm] = useState({ name: "", brand: "", category: "", barcode: "", country: "", image_url: "", ingredient_text: "", nutrition_data: "{}" });
+  const [certificateForm, setCertificateForm] = useState({ product_id: "", authority_name: "", certificate_number: "", country: "", valid_from: "", valid_until: "", verification_url: "", status: "ACTIVE" });
+
+  async function refresh() {
+    try {
+      const [stats, ingredientRows, productRows, reportRows] = await Promise.all([api.adminDashboard(), api.ingredients(), api.searchProducts(""), api.adminReports()]);
+      setDashboard(stats); setIngredients(ingredientRows); setProducts(productRows); setReports(reportRows);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Administrator access is required."); }
+  }
+  useEffect(() => { void refresh(); }, []);
+
+  async function addIngredient(event: FormEvent) {
+    event.preventDefault(); setNotice("");
+    try { await api.adminCreateIngredient({ ...ingredientForm, aliases: ingredientForm.aliases.split(",").map((v) => v.trim()).filter(Boolean), e_number: ingredientForm.e_number || null, source: ingredientForm.source || null }); setIngredientForm({ ...ingredientForm, name: "", aliases: "", e_number: "", explanation: "", source: "" }); setNotice("Ingredient added."); await refresh(); }
+    catch (reason) { setNotice(reason instanceof Error ? reason.message : "Could not add ingredient."); }
+  }
+
+  async function addProduct(event: FormEvent) {
+    event.preventDefault(); setNotice("");
+    try { await api.createProduct({ ...productForm, barcode: productForm.barcode || null, country: productForm.country || null, image_url: productForm.image_url || null, ingredient_text: productForm.ingredient_text || null, nutrition_data: JSON.parse(productForm.nutrition_data || "{}") }); setNotice("Product added."); setProductForm({ ...productForm, name: "", brand: "", barcode: "", ingredient_text: "" }); await refresh(); }
+    catch (reason) { setNotice(reason instanceof Error ? reason.message : "Could not add product."); }
+  }
+
+  async function addCertificate(event: FormEvent) {
+    event.preventDefault(); setNotice("");
+    try { await api.adminCreateCertification({ ...certificateForm, country: certificateForm.country || null, valid_from: certificateForm.valid_from || null, valid_until: certificateForm.valid_until || null, verification_url: certificateForm.verification_url || null }); setNotice("Certificate added."); setCertificateForm({ ...certificateForm, certificate_number: "", authority_name: "" }); }
+    catch (reason) { setNotice(reason instanceof Error ? reason.message : "Could not add certificate."); }
+  }
+
+  if (error) return <div className="page-shell page-content"><div className="empty-state"><h2>Admin access required</h2><p>{error}</p></div></div>;
+  if (!dashboard) return <div className="page-shell page-content"><Loading /></div>;
+
+  return <div className="page-shell page-content"><div className="page-heading"><p className="eyebrow">Administration</p><h1>Data control panel</h1><p>Keep the MVP database accurate and review user corrections.</p></div><div className="stat-grid"><Stat label="Users" value={dashboard.users}/><Stat label="Products" value={dashboard.products}/><Stat label="Ingredients" value={dashboard.ingredients}/><Stat label="Scans" value={dashboard.scans}/><Stat label="Open reports" value={dashboard.open_reports}/></div><div className="admin-tabs">{(["ingredients", "products", "certificates", "reports"] as const).map((name) => <button key={name} className={tab === name ? "active" : ""} onClick={() => setTab(name)}>{name}</button>)}</div>{notice && <p className="notice">{notice}</p>}{tab === "ingredients" && <div className="admin-grid"><form className="card form-card" onSubmit={addIngredient}><h2>Add ingredient</h2><label>Name<input required value={ingredientForm.name} onChange={(e) => setIngredientForm({ ...ingredientForm, name: e.target.value })}/></label><label>Aliases, comma separated<input value={ingredientForm.aliases} onChange={(e) => setIngredientForm({ ...ingredientForm, aliases: e.target.value })}/></label><div className="two-cols"><label>E-number<input value={ingredientForm.e_number} onChange={(e) => setIngredientForm({ ...ingredientForm, e_number: e.target.value })}/></label><label>Risk 0–5<input type="number" min="0" max="5" value={ingredientForm.risk_level} onChange={(e) => setIngredientForm({ ...ingredientForm, risk_level: Number(e.target.value) })}/></label></div><div className="two-cols"><label>Halal status<select value={ingredientForm.halal_status} onChange={(e) => setIngredientForm({ ...ingredientForm, halal_status: e.target.value })}><option>HALAL</option><option>HARAM</option><option>DOUBTFUL</option><option>UNKNOWN</option></select></label><label>Health status<select value={ingredientForm.health_status} onChange={(e) => setIngredientForm({ ...ingredientForm, health_status: e.target.value })}><option>HEALTHY</option><option>NEUTRAL</option><option>UNHEALTHY</option><option>UNKNOWN</option></select></label></div><label className="check-row"><input type="checkbox" checked={ingredientForm.source_dependent} onChange={(e) => setIngredientForm({ ...ingredientForm, source_dependent: e.target.checked })}/> Source dependent</label><label>Explanation<textarea required rows={4} value={ingredientForm.explanation} onChange={(e) => setIngredientForm({ ...ingredientForm, explanation: e.target.value })}/></label><label>Evidence source<input value={ingredientForm.source} onChange={(e) => setIngredientForm({ ...ingredientForm, source: e.target.value })}/></label><button className="button">Add ingredient</button></form><section className="card admin-list"><h2>Current ingredients</h2>{ingredients.map((item) => <div key={item.id}><strong>{item.name}{item.e_number ? ` (${item.e_number})` : ""}</strong><span>{item.halal_status} · {item.health_status}</span></div>)}</section></div>}{tab === "products" && <div className="admin-grid"><form className="card form-card" onSubmit={addProduct}><h2>Add product</h2><div className="two-cols"><label>Name<input required value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}/></label><label>Brand<input value={productForm.brand} onChange={(e) => setProductForm({ ...productForm, brand: e.target.value })}/></label></div><div className="two-cols"><label>Category<input value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}/></label><label>Barcode<input value={productForm.barcode} onChange={(e) => setProductForm({ ...productForm, barcode: e.target.value })}/></label></div><label>Image URL<input value={productForm.image_url} onChange={(e) => setProductForm({ ...productForm, image_url: e.target.value })}/></label><label>Ingredients<textarea rows={5} value={productForm.ingredient_text} onChange={(e) => setProductForm({ ...productForm, ingredient_text: e.target.value })}/></label><label>Nutrition JSON<textarea rows={5} value={productForm.nutrition_data} onChange={(e) => setProductForm({ ...productForm, nutrition_data: e.target.value })}/></label><button className="button">Add product</button></form><section className="card admin-list"><h2>Products</h2>{products.map((item) => <div key={item.id}><strong>{item.name}</strong><span>{item.brand || ""} · {item.barcode || "No barcode"}</span></div>)}</section></div>}{tab === "certificates" && <form className="card form-card admin-form-wide" onSubmit={addCertificate}><h2>Add certificate</h2><label>Product<select required value={certificateForm.product_id} onChange={(e) => setCertificateForm({ ...certificateForm, product_id: e.target.value })}><option value="">Choose product</option>{products.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><div className="two-cols"><label>Authority<input required value={certificateForm.authority_name} onChange={(e) => setCertificateForm({ ...certificateForm, authority_name: e.target.value })}/></label><label>Certificate number<input required value={certificateForm.certificate_number} onChange={(e) => setCertificateForm({ ...certificateForm, certificate_number: e.target.value })}/></label></div><div className="three-cols"><label>Country<input maxLength={2} value={certificateForm.country} onChange={(e) => setCertificateForm({ ...certificateForm, country: e.target.value.toUpperCase() })}/></label><label>Valid from<input type="date" value={certificateForm.valid_from} onChange={(e) => setCertificateForm({ ...certificateForm, valid_from: e.target.value })}/></label><label>Valid until<input type="date" value={certificateForm.valid_until} onChange={(e) => setCertificateForm({ ...certificateForm, valid_until: e.target.value })}/></label></div><label>Verification URL<input value={certificateForm.verification_url} onChange={(e) => setCertificateForm({ ...certificateForm, verification_url: e.target.value })}/></label><button className="button">Add certificate</button></form>}{tab === "reports" && <section className="card admin-list report-list"><h2>User reports</h2>{reports.length ? reports.map((report) => <div key={report.id}><div><strong>{report.status}</strong><p>{report.message}</p><small>{new Date(report.created_at).toLocaleString()}</small></div><select value={report.status} onChange={(e) => { void api.adminUpdateReport(report.id, e.target.value).then(refresh); }}><option>OPEN</option><option>REVIEWING</option><option>RESOLVED</option><option>REJECTED</option></select></div>) : <p className="muted">No reports.</p>}</section>}</div>;
+}
+
+function Stat({ label, value }: { label: string; value: number }) { return <div className="stat-card"><strong>{value}</strong><span>{label}</span></div>; }
