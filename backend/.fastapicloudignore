@@ -1,0 +1,23 @@
+# Local secrets and environments
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
+
+# Important: this project archive previously contained a uv.lock generated
+# against a private build index. Let FastAPI Cloud resolve pyproject.toml
+# against its own package index instead.
+uv.lock
+
+# Not needed by the running cloud application
+tests/
+Dockerfile
+package-lock.json
+*.db
+*.sqlite
+*.sqlite3
