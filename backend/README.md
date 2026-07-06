@@ -1,246 +1,90 @@
-# HalalFit Backend — FastAPI Cloud + Neon
+# HalalFit FastAPI backend
 
-This folder is prepared for:
+FastAPI + SQLAlchemy + Neon PostgreSQL backend for HalalFit.
 
-- FastAPI Cloud for the API
-- Neon PostgreSQL for persistent cloud data
-- SQLAlchemy async sessions through asyncpg
-- Automatic first-run table creation and safe starter-data seeding
+## FastAPI Cloud environment variables
 
-The backend never needs to connect to a PostgreSQL server running on your computer.
-
-## Important architecture
-
-```text
-Next.js / Android app
-        ↓ HTTPS
-FastAPI Cloud
-        ↓ DATABASE_URL
-Neon PostgreSQL
-```
-
-FastAPI Cloud runs the API. Neon runs the PostgreSQL database.
-
-## Files cleaned from the uploaded project
-
-The deployment package intentionally excludes:
-
-- `.env`
-- `.venv/`
-- `__pycache__/`
-- `.ruff_cache/`
-- generated `*.egg-info/`
-
-Never upload the real `.env` file. Add secrets in FastAPI Cloud instead.
-
-## 1. Install once on Windows
-
-The project uses Python 3.13.
-
-```powershell
-cd "D:\Android dev\Halal-app-web\backend"
-
-py -3.13 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
-```
-
-Verify the entrypoint:
-
-```powershell
-fastapi dev
-```
-
-It should start without requiring `app/main.py` because `pyproject.toml` contains:
-
-```toml
-[tool.fastapi]
-entrypoint = "app.main:app"
-```
-
-## 2. Create the FastAPI Cloud app
-
-```powershell
-fastapi login
-fastapi deploy
-```
-
-The first command opens the login page. The deploy command creates or links the cloud app and returns a URL similar to:
-
-```text
-https://halalfit-xxxxxxxx.fastapicloud.dev
-```
-
-The first deployment may use the local SQLite fallback only to allow the cloud app to be created. Do not use that deployment for real app data. Connect Neon and redeploy next.
-
-## 3. Connect Neon in FastAPI Cloud
-
-In the FastAPI Cloud dashboard:
-
-1. Open team **Integrations**.
-2. Connect your Neon account.
-3. Open the HalalFit app.
-4. Open **Integrations → Neon**.
-5. Select the Neon project, branch, and database.
-6. Enable redeployment.
-
-FastAPI Cloud creates an encrypted `DATABASE_URL` secret. The code accepts the standard Neon `postgresql://` connection string and converts it to the asyncpg SQLAlchemy format automatically.
-
-You do not need to manually change it to `postgresql+asyncpg://`; the backend normalizes the URL.
-
-## 4. Add cloud environment variables
-
-In the app dashboard, open **Environment Variables** and add:
+Set these in **FastAPI Cloud → backend app → Environment Variables**, then redeploy:
 
 ```env
+APP_NAME=HalalFit Global
 APP_ENV=production
 DEBUG=false
 API_PREFIX=/api
-JWT_SECRET=GENERATE_A_LONG_RANDOM_SECRET
-FRONTEND_URLS=["https://your-frontend-domain.com","capacitor://localhost","https://localhost"]
+DATABASE_URL=<Neon pooled URL>
+JWT_SECRET=<long random secret>
+CORS_ALLOW_ALL=true
 AUTO_CREATE_TABLES=true
 AUTO_SEED_DATA=true
-SEED_DEMO_PRODUCTS=false
-OPEN_FOOD_FACTS_USER_AGENT=HalalFit/1.0 (your-email@example.com)
+SEED_DEMO_PRODUCTS=true
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=baisakh2015@gmail.com
+SMTP_PASSWORD=<Google 16-character App Password>
+SMTP_FROM_EMAIL=baisakh2015@gmail.com
+SMTP_FROM_NAME=HalalFit
+CONTACT_RECEIVER_EMAIL=baisakh2015@gmail.com
+OTP_EXPIRE_SECONDS=120
+OTP_RESEND_SECONDS=60
+OTP_MAX_ATTEMPTS=5
 ```
 
-Mark `JWT_SECRET` as a secret.
+`SMTP_PASSWORD` must be a Google App Password, not the normal Gmail password. Enable 2-Step Verification on the Google account first.
 
-### First administrator
+Mark `DATABASE_URL`, `JWT_SECRET`, and `SMTP_PASSWORD` as secrets.
 
-For the first deployment only, optionally add these as secrets:
-
-```env
-SEED_ADMIN_EMAIL=your-email@example.com
-SEED_ADMIN_PASSWORD=YOUR_STRONG_PASSWORD
-```
-
-After the administrator is created and login works, remove those two environment variables and redeploy. The user remains in Neon.
-
-### Image OCR
-
-Manual ingredient checking, product search, barcode scanning, and QR-code lookup work without an OCR provider.
-
-For label-image OCR on FastAPI Cloud, configure:
-
-```env
-OCR_PROVIDER=ocr_space
-OCR_API_KEY=YOUR_OCR_API_KEY
-OCR_LANGUAGE=eng
-```
-
-Mark `OCR_API_KEY` as a secret. Uploaded label images are sent to the configured OCR provider. Update your privacy policy accordingly.
-
-Without those variables, `/api/scan/image` returns a clear configuration error instead of crashing the API.
-
-## 5. Redeploy
-
-After saving variables and connecting Neon:
+## Deployment
 
 ```powershell
 fastapi deploy
 ```
 
-Or use **Save and Redeploy** in the dashboard.
+After deployment check:
 
-On startup, the backend will:
+- `/health`
+- `/health/database`
+- `/health/config` — `email_configured` must be `true`
+- `/docs`
 
-1. Connect to Neon.
-2. Create missing tables.
-3. Insert the core ingredient and halal-rule data if missing.
-4. Create the optional administrator if configured.
+The startup process creates missing tables and applies the small profile/OTP schema upgrade to an existing Neon database.
 
-The seed process is idempotent and uses a PostgreSQL advisory lock so multiple cloud instances do not seed simultaneously.
+## Authentication flow
 
-## 6. Verify the cloud deployment
+- `POST /api/auth/register/send-otp`
+- `POST /api/auth/register/verify-otp`
+- `POST /api/auth/register/resend-otp`
+- `POST /api/auth/login`
+- `POST /api/auth/forgot-password/send-otp`
+- `POST /api/auth/forgot-password/verify-otp`
+- `POST /api/auth/forgot-password/reset`
+- `POST /api/auth/email-change/send-otp`
+- `POST /api/auth/email-change/verify-otp`
+- `POST /api/auth/password/change`
 
-Open these URLs using your generated FastAPI Cloud domain:
+OTPs expire after 2 minutes. Resending is allowed after 1 minute.
 
-```text
-https://YOUR-APP.fastapicloud.dev/
-https://YOUR-APP.fastapicloud.dev/health
-https://YOUR-APP.fastapicloud.dev/health/database
-https://YOUR-APP.fastapicloud.dev/docs
-```
+## Product data schema
 
-Expected database health response:
+Files under `data/`:
 
-```json
-{
-  "status": "ok",
-  "database": "connected"
-}
-```
+- `product-import.schema.json` — JSON Schema
+- `sample-products.json` — valid example
+- `products-template.csv` — spreadsheet template
 
-## 7. Connect the frontend
+The best way to add a product is through the admin page or `POST /api/products`. This automatically recalculates halal and health results.
 
-In the Next.js frontend `.env.local`:
-
-```env
-NEXT_PUBLIC_API_URL=https://YOUR-APP.fastapicloud.dev/api
-```
-
-Rebuild the web/Android frontend after changing a `NEXT_PUBLIC_` variable.
-
-Do not put Neon credentials or `JWT_SECRET` in the frontend environment file.
-
-## Database setup behavior
-
-For this MVP, `AUTO_CREATE_TABLES=true` creates missing tables automatically. This is the easiest first deployment.
-
-Alembic remains included for later schema changes. To run migrations manually, set a direct Neon URL locally:
-
-```env
-MIGRATION_DATABASE_URL=postgresql://USER:PASSWORD@DIRECT_HOST/neondb?sslmode=require&channel_binding=require
-```
-
-Then run:
+For a JSON batch:
 
 ```powershell
-alembic upgrade head
+python scripts/import_products.py data/sample-products.json
 ```
 
-For later production schema changes, run migrations carefully before or after deployments depending on whether the change adds or removes fields.
-
-## Useful commands
+## Local development
 
 ```powershell
-# Local development
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
 fastapi dev
-
-# Tests
-pytest
-
-# Lint
-ruff check .
-
-# Cloud deployment
-fastapi deploy
-
-# Cloud logs
-fastapi cloud logs
 ```
-
-## Deployment lock-file fix
-
-This package intentionally does not include `uv.lock`.
-
-The previous lock file was generated against a private package registry and
-contained private registry URLs. FastAPI Cloud followed those URLs during the
-build, which caused dependency download timeouts for packages such as
-`typing-extensions` and `psycopg-binary`.
-
-FastAPI Cloud can install directly from `pyproject.toml`, so the corrected
-package excludes `uv.lock` from deployment. Do not copy the previous lock file
-back into this folder.
-
-Deploy with:
-
-```powershell
-fastapi deploy
-```
-
-If you later want a local lock file, regenerate it on your own computer using a
-public package index, and keep it excluded from FastAPI Cloud unless you verify
-that it contains only public registry URLs.
