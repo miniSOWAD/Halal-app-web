@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app import auth, crud, models, schemas, services
 from app.database import get_database
 
-
 router = APIRouter()
 
 
