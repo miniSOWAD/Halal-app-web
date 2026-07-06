@@ -21,6 +21,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     country: str | None = Field(default=None, min_length=2, max_length=2)
+    phone: str | None = Field(default=None, max_length=32)
 
 
 class UserLogin(BaseModel):
@@ -31,6 +32,21 @@ class UserLogin(BaseModel):
 class UserUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=120)
     country: str | None = Field(default=None, min_length=2, max_length=2)
+    phone: str | None = Field(default=None, max_length=32)
+
+
+class PasswordChange(BaseModel):
+    old_password: str = Field(min_length=8, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class EmailChangeRequest(BaseModel):
+    new_email: EmailStr
+
+
+class EmailChangeVerify(BaseModel):
+    new_email: EmailStr
+    otp: str = Field(pattern=r"^\d{6}$")
 
 
 class UserResponse(BaseModel):
@@ -40,6 +56,8 @@ class UserResponse(BaseModel):
     name: str
     email: EmailStr
     country: str | None
+    phone: str | None
+    email_verified: bool
     is_admin: bool
     created_at: datetime
 
@@ -48,6 +66,32 @@ class AuthResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+
+class OTPResponse(BaseModel):
+    message: str
+    email: EmailStr
+    expires_in_seconds: int = 120
+    resend_in_seconds: int = 60
+
+
+class OTPVerify(BaseModel):
+    email: EmailStr
+    otp: str = Field(pattern=r"^\d{6}$")
+
+
+class PasswordResetToken(BaseModel):
+    reset_token: str
+    expires_in_seconds: int = 600
+
+
+class PasswordReset(BaseModel):
+    reset_token: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
 
 
 class IngredientCreate(BaseModel):
@@ -99,11 +143,11 @@ class CertificationResponse(CertificationCreate):
 
 
 class ProductCreate(BaseModel):
-    name: str
-    brand: str | None = None
-    category: str | None = None
-    barcode: str | None = None
-    country: str | None = None
+    name: str = Field(min_length=2, max_length=220)
+    brand: str | None = Field(default=None, max_length=160)
+    category: str | None = Field(default=None, max_length=120)
+    barcode: str | None = Field(default=None, max_length=32)
+    country: str | None = Field(default=None, min_length=2, max_length=2)
     image_url: str | None = None
     ingredient_text: str | None = None
     nutrition_data: dict[str, Any] = Field(default_factory=dict)
@@ -243,7 +287,9 @@ class ScanHistoryItem(BaseModel):
 
 class ReportCreate(BaseModel):
     product_id: uuid.UUID | None = None
-    message: str = Field(min_length=5, max_length=2_000)
+    subject: str = Field(default="User report", min_length=3, max_length=180)
+    category: Literal["GENERAL", "PRODUCT_DATA", "TECHNICAL", "ACCOUNT", "OTHER"] = "GENERAL"
+    message: str = Field(min_length=5, max_length=4_000)
 
 
 class ReportResponse(BaseModel):
@@ -251,6 +297,8 @@ class ReportResponse(BaseModel):
 
     id: uuid.UUID
     product_id: uuid.UUID | None
+    subject: str
+    category: str
     message: str
     status: str
     created_at: datetime
