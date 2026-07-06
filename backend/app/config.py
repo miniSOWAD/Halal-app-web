@@ -24,6 +24,18 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7
 
+    otp_expire_seconds: int = 120
+    otp_resend_seconds: int = 60
+    otp_max_attempts: int = 5
+
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from_email: str = "baisakh2015@gmail.com"
+    smtp_from_name: str = "HalalFit"
+    contact_receiver_email: str = "baisakh2015@gmail.com"
+
     # For a small public API that uses Bearer tokens (not cookies), allowing all
     # origins is the easiest reliable setup for web + Capacitor. Set this to
     # false later and list exact deployed origins in FRONTEND_URLS.
