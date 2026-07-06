@@ -12,6 +12,8 @@ export interface User {
   name: string;
   email: string;
   country?: string | null;
+  phone?: string | null;
+  email_verified: boolean;
   is_admin: boolean;
   created_at: string;
 }
@@ -20,6 +22,18 @@ export interface AuthResponse {
   access_token: string;
   token_type: string;
   user: User;
+}
+
+export interface OTPResponse {
+  message: string;
+  email: string;
+  expires_in_seconds: number;
+  resend_in_seconds: number;
+}
+
+export interface PasswordResetToken {
+  reset_token: string;
+  expires_in_seconds: number;
 }
 
 export interface Certification {
@@ -143,6 +157,8 @@ export interface Ingredient {
 export interface Report {
   id: string;
   product_id?: string | null;
+  subject: string;
+  category: string;
   message: string;
   status: string;
   created_at: string;
