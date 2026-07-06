@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">HalalFit</string>
+    <string name="title_activity_main">HalalFit</string>
+    <string name="package_name">com.halalfit.global</string>
+    <string name="custom_url_scheme">com.halalfit.global</string>
+</resources>
