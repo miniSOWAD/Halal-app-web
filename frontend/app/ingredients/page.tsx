@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { api } from "@/lib/api";
+import { rememberScanResult } from "@/lib/scan-cache";
 
 export default function IngredientsPage() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function IngredientsPage() {
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError("");
     const values = Object.fromEntries(Object.entries(nutrition).filter(([, value]) => value !== "").map(([key, value]) => [key, Number(value)]));
-    try { const result = await api.analyzeIngredients({ ingredient_text: text, product_name: name || undefined, nutrition_data: values }); router.push(`/result/?id=${result.scan_id}`); }
+    try { const result = await api.analyzeIngredients({ ingredient_text: text, product_name: name || undefined, nutrition_data: values }); rememberScanResult(result); router.push(`/result/?id=${encodeURIComponent(result.scan_id)}`); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "Could not analyze ingredients."); }
     finally { setBusy(false); }
   }

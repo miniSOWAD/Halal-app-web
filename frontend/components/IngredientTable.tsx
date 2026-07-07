@@ -23,10 +23,10 @@ export default function IngredientTable({ ingredients }: { ingredients: Ingredie
         <tbody>
           {ingredients.map((ingredient, index) => (
             <tr key={`${ingredient.name}-${index}`}>
-              <td><strong>{ingredient.name}</strong>{!ingredient.matched && <small> Not in database</small>}</td>
-              <td><span className={`status-pill ${statusClass(ingredient.status)}`}>{ingredient.status}</span></td>
-              <td>{ingredient.health_status}</td>
-              <td>{ingredient.reason}</td>
+              <td data-label="Ingredient"><strong>{ingredient.name}</strong>{!ingredient.matched && <small> Not in database</small>}</td>
+              <td data-label="Halal status"><span className={`status-pill ${statusClass(ingredient.status)}`}>{ingredient.status}</span></td>
+              <td data-label="Health note">{ingredient.health_status}</td>
+              <td data-label="Reason">{ingredient.reason}</td>
             </tr>
           ))}
         </tbody>
